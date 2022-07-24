@@ -1,0 +1,97 @@
+import pandas as pd
+
+df_incomplete = pd.read_csv("ftseall_index.csv")   #the csv file is in the session storage
+
+df_incomplete.head()
+df_incomplete.describe()  #initial check on the data
+#df_incomplete.nunique()
+#df_incomplete.info()
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+df  = df_incomplete.loc[df_incomplete['gics_sector_name']!= 'Investment Fund'] # removing 'Investment fund' data
+
+df = df.assign(px_mid = (df['px_bid']+df['px_ask'])/2)   #mid price
+df = df.assign(ytd_rtn = ((df['px_mid']-df['px_close_ytd'])/df['px_close_ytd'])*100) #calculating ytd returns in terms of percentages
+df = df.assign(volume_20d_mv = ((df['volume_avg_20d']*df['px_mid'])/1000000))  # calculating volume expressed in market value (millions)
+df = df.assign(bid_ask_spread = ((df['px_ask']-df['px_bid'])/df['px_mid'])*100)  #calculating the spread in % value
+
+df.describe()
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+df_loss = df.sort_values('ytd_rtn').head(10) # filtering to find worst 10 sectors
+df_win = df.sort_values('ytd_rtn',ascending= False).head(10) # filtering to find best 10 sectors
+
+for col in df_loss.columns:   # deleting unwanted columns so I can print a neat table
+   if (col != 'name' and col != 'ticker' and col != 'ytd_rtn' and col != 'gics_sector_name'):
+        del df_loss[col] 
+df_loss
+# df_loss
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+plt.figure(figsize=(15,10))
+
+sns.barplot(df_loss['ticker'],df_loss['ytd_rtn'])   # presenting data using a barplot
+# sns.barplot(df_win['ticker'],df_win['ytd_rtn'])
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+pd.set_option('display.max_columns',1000) 
+pd.set_option('display.max_rows',1000)# so that more columns and rows are rendered 
+
+df_sector = df.groupby(pd.Grouper(key='gics_sector_name'))  #grouping data by sector
+
+df_sector.describe()  #summary statisitcs by sector to find strongest index
+
+
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+df['mcap_mm']=df['mcap_mm'].str.replace(',','').astype(int) # mmcap_mm is an object datatype, need to remove commas for comparision
+
+df_smallcap = df.loc[df['mcap_mm']<500] #checking for market cap less then 500 mil
+
+df_smallcap.describe()
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+df_smallcap['mcap_mm'].mean() # calculating mean market cap 
+# df['mcap_mm'].mean()
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+df.describe()
+
+x = {'bid-ask spread (%)': [df['bid_ask_spread'].mean(), df_smallcap['bid_ask_spread'].mean()], 
+     'avg daily volume(number of shares)': [df['volume_avg_20d'].mean()/1000000, df_smallcap['volume_avg_20d'].mean()/1000000], 
+     'avg daily volume (market value)': [df['volume_20d_mv'].mean(), df_smallcap['volume_20d_mv'].mean()] }
+index1 = ['Index', 'Small Cap']
+
+table = pd.DataFrame(data=x, index=index1)
+table
+
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# looking for other possible insights
+
+plt.figure(figsize=(30,20))
+
+# sns.heatmap(df.corr())
+
+# df_sector.corr() 
+# df_smallcap.corr()
+df.corr()
+
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+
+sns.kdeplot(df['ytd_rtn'], shade=True, label = 'Index')
+sns.kdeplot(df_smallcap['ytd_rtn'], shade=True, label = 'Small Cap')
+plt.title("Index(Blue) , Small Cap(Orange)")
+
+#roughly normally distributed returns 
